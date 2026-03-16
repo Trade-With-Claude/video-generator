@@ -6,7 +6,7 @@ v1
 ## Version History
 | Version | Status | Git Tag |
 |---------|--------|---------|
-| v1 | initialized | — |
+| v1 | roadmap_complete | — |
 
 ## Next Action
-Fill in `.bolt/v1/IDEA.md`, then run `/bolt:discover`
+Run `/bolt:plan 1` to plan the first phase.
