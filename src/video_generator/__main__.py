@@ -1,7 +1,6 @@
 """CLI entry point: python -m video_generator"""
 
 import argparse
-import sys
 
 
 def main() -> None:
@@ -19,15 +18,22 @@ def main() -> None:
                         help="Random seed for reproducibility")
     parser.add_argument("--output", type=str, default=None,
                         help="Output file path")
+    parser.add_argument("--color", action="append", default=None,
+                        help="Custom hex color (e.g. --color ff8800 --color 4400ff). "
+                             "1 color = primary, 2 = gradient, 3+ = full palette")
 
     args = parser.parse_args()
 
+    # Parse colors if provided
+    colors = None
+    if args.color:
+        from video_generator.presets import parse_hex_color
+        colors = [parse_hex_color(c) for c in args.color]
+
     if args.mood is None:
-        # Interactive mode
         from video_generator.tui import run_tui
         run_tui()
     else:
-        # CLI mode
         from video_generator.generate import generate
         generate(
             mood=args.mood,
@@ -35,6 +41,7 @@ def main() -> None:
             loop_duration=args.loop_duration,
             seed=args.seed,
             output=args.output,
+            colors=colors,
         )
 
 

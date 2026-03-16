@@ -9,7 +9,7 @@ from video_generator.config import Settings
 from video_generator.ffmpeg import FFmpegPipe, check_ffmpeg
 from video_generator.layers import LayerCompositor
 from video_generator.loop import extend_loop
-from video_generator.presets import get_preset
+from video_generator.presets import apply_custom_colors, get_preset
 from video_generator.render import build_layers
 from video_generator.time_loop import TimeLoop
 
@@ -20,6 +20,7 @@ def generate(
     loop_duration: float = 45.0,
     seed: int | None = None,
     output: str | Path | None = None,
+    colors: list[tuple[int, int, int]] | None = None,
 ) -> Path:
     """Generate a video end-to-end. Returns the path to the output MP4.
 
@@ -29,6 +30,7 @@ def generate(
         loop_duration: Length of the rendered seamless loop in seconds.
         seed: Random seed for reproducibility. Auto-generated if None.
         output: Output file path. Auto-generated if None.
+        colors: Custom color palette as list of (r,g,b) tuples. Overrides preset colors.
     """
     check_ffmpeg()
 
@@ -46,6 +48,8 @@ def generate(
     output = Path(output)
 
     preset = get_preset(mood, seed=seed)
+    if colors:
+        preset = apply_custom_colors(preset, colors)
     layers = build_layers(preset, settings.width, settings.height)
     compositor = LayerCompositor(layers, settings.width, settings.height)
     loop = TimeLoop(settings.fps, loop_duration)

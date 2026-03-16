@@ -13,7 +13,7 @@ from video_generator.layers import Layer
 
 
 class GlowParticleLayer(Layer):
-    """Soft glowing particles with gaussian bloom effect."""
+    """Sharp particles with radial gradient glow halos via Cairo."""
 
     def __init__(
         self,
@@ -23,86 +23,75 @@ class GlowParticleLayer(Layer):
         count: int = 200,
         seed: int = 0,
         colors: list[tuple[int, int, int]] | None = None,
-        size_range: tuple[float, float] = (4.0, 12.0),
+        size_range: tuple[float, float] = (2.0, 6.0),
         drift_range: tuple[float, float] = (40.0, 180.0),
-        glow_radius: float = 15.0,
-        alpha_range: tuple[float, float] = (0.3, 0.8),
+        glow_radius: float = 3.0,
+        alpha_range: tuple[float, float] = (0.4, 0.9),
     ) -> None:
         self.width = width
         self.height = height
         self.count = count
-        self.glow_radius = glow_radius
-
-        # Render at half resolution for performance
-        self.hr_w = width // 2
-        self.hr_h = height // 2
+        self.glow_mult = glow_radius  # multiplier: halo radius = size * glow_mult
 
         rng = np.random.default_rng(seed)
 
         if colors is None:
             colors = [(100, 200, 255), (150, 220, 255), (80, 160, 240)]
 
-        self.base_x = rng.uniform(0, self.hr_w, count)
-        self.base_y = rng.uniform(0, self.hr_h, count)
+        self.base_x = rng.uniform(0, width, count)
+        self.base_y = rng.uniform(0, height, count)
         self.phases = rng.uniform(0, 2 * math.pi, count)
-        self.drift_x = rng.uniform(drift_range[0] / 2, drift_range[1] / 2, count)
-        self.drift_y = rng.uniform(drift_range[0] / 2, drift_range[1] / 2, count)
+        self.drift_x = rng.uniform(drift_range[0], drift_range[1], count)
+        self.drift_y = rng.uniform(drift_range[0], drift_range[1], count)
         self.sizes = rng.uniform(size_range[0], size_range[1], count)
         self.alphas = rng.uniform(alpha_range[0], alpha_range[1], count)
 
-        # Assign colors from palette
         self.colors = np.array([colors[i % len(colors)] for i in range(count)], dtype=np.float64)
-        # Add per-particle color jitter
-        self.colors += rng.uniform(-15, 15, self.colors.shape)
+        self.colors += rng.uniform(-20, 20, self.colors.shape)
         self.colors = np.clip(self.colors, 0, 255)
 
     def render(self, t: float, theta: float) -> np.ndarray:
         x = self.base_x + self.drift_x * np.sin(theta + self.phases)
         y = self.base_y + self.drift_y * np.cos(theta * 0.8 + self.phases)
-        x = x % self.hr_w
-        y = y % self.hr_h
+        x = x % self.width
+        y = y % self.height
 
-        # Render to half-res float buffer for glow
-        buf = np.zeros((self.hr_h, self.hr_w, 3), dtype=np.float32)
-
-        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.hr_w, self.hr_h)
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.width, self.height)
         ctx = cairo.Context(surface)
 
         for i in range(self.count):
             r, g, b = self.colors[i] / 255.0
             a = self.alphas[i]
-            ctx.set_source_rgba(r, g, b, a)
-            ctx.arc(x[i], y[i], self.sizes[i], 0, 2 * math.pi)
+            px, py = float(x[i]), float(y[i])
+            sz = float(self.sizes[i])
+            halo_r = sz * self.glow_mult
+
+            # Draw glow halo (radial gradient: bright center → transparent edge)
+            pat = cairo.RadialGradient(px, py, sz * 0.5, px, py, halo_r)
+            pat.add_color_stop_rgba(0.0, r, g, b, a * 0.5)
+            pat.add_color_stop_rgba(0.5, r, g, b, a * 0.15)
+            pat.add_color_stop_rgba(1.0, r, g, b, 0.0)
+            ctx.set_source(pat)
+            ctx.arc(px, py, halo_r, 0, 2 * math.pi)
             ctx.fill()
 
-        # Extract RGB from Cairo
-        raw = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(self.hr_h, self.hr_w, 4).copy()
-        buf[:, :, 0] = raw[:, :, 2].astype(np.float32)  # R from B channel (BGRA)
-        buf[:, :, 1] = raw[:, :, 1].astype(np.float32)
-        buf[:, :, 2] = raw[:, :, 0].astype(np.float32)
+            # Draw sharp core
+            ctx.set_source_rgba(r, g, b, a)
+            ctx.arc(px, py, sz, 0, 2 * math.pi)
+            ctx.fill()
 
-        # Apply gaussian glow
-        for c in range(3):
-            buf[:, :, c] = gaussian_filter(buf[:, :, c], sigma=self.glow_radius)
+        buf = np.frombuffer(surface.get_data(), dtype=np.uint8).reshape(
+            self.height, self.width, 4
+        ).copy()
 
-        # Boost brightness for bloom effect
-        buf *= 2.5
-        buf = np.clip(buf, 0, 255)
+        # BGRA → RGBA
+        rgba = np.empty_like(buf)
+        rgba[:, :, 0] = buf[:, :, 2]
+        rgba[:, :, 1] = buf[:, :, 1]
+        rgba[:, :, 2] = buf[:, :, 0]
+        rgba[:, :, 3] = buf[:, :, 3]
 
-        # Upscale to full res
-        frame_rgba = np.zeros((self.height, self.width, 4), dtype=np.uint8)
-        from scipy.ndimage import zoom
-        for c in range(3):
-            frame_rgba[:, :, c] = np.clip(
-                zoom(buf[:, :, c], (self.height / self.hr_h, self.width / self.hr_w), order=1),
-                0, 255
-            ).astype(np.uint8)[: self.height, : self.width]
-
-        # Alpha from brightness
-        brightness = np.max(frame_rgba[:, :, :3], axis=2)
-        frame_rgba[:, :, 3] = brightness
-
-        return frame_rgba
+        return rgba
 
 
 class AuroraLayer(Layer):

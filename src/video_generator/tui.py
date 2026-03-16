@@ -5,7 +5,7 @@ from __future__ import annotations
 import questionary
 
 from video_generator.generate import generate
-from video_generator.presets import AVAILABLE_MOODS
+from video_generator.presets import AVAILABLE_MOODS, parse_hex_color
 
 
 def run_tui() -> None:
@@ -46,6 +46,20 @@ def run_tui() -> None:
         return
     seed = int(seed_str) if seed_str.strip() else None
 
+    # Custom colors
+    colors = None
+    use_custom = questionary.confirm(
+        "Custom colors?",
+        default=False,
+    ).ask()
+    if use_custom:
+        color_str = questionary.text(
+            "Enter hex colors separated by spaces (e.g. ff8800 4400ff 00ff88):",
+            default="",
+        ).ask()
+        if color_str and color_str.strip():
+            colors = [parse_hex_color(c) for c in color_str.split()]
+
     print()
     confirm = questionary.confirm(
         f"Generate {mood} video — {target_duration}s from {loop_duration}s loop?",
@@ -61,5 +75,6 @@ def run_tui() -> None:
         target_duration=target_duration,
         loop_duration=loop_duration,
         seed=seed,
+        colors=colors,
     )
     print(f"\nVideo ready: {output}")

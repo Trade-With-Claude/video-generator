@@ -73,10 +73,10 @@ def _ambient_base() -> dict:
             (100, 200, 255),
             (40, 140, 200),
         ],
-        particle_glow_radius=18.0,
-        particle_size_range=(5.0, 14.0),
+        particle_glow_radius=8.0,
+        particle_size_range=(3.0, 8.0),
         particle_drift_range=(30.0, 100.0),
-        particle_alpha_range=(0.25, 0.65),
+        particle_alpha_range=(0.35, 0.75),
         particle_color_base=(80, 180, 210),
         particle_color_variance=25.0,
         # Aurora
@@ -147,22 +147,23 @@ def _trippy_base() -> dict:
         bg_color_high=(60, 15, 100),
         bg_noise_scale=4.0,
         bg_noise_speed=1.8,
-        # Flow field particles (dense, fast)
-        particle_type="flow",
-        particle_count=2000,
+        # Dense glow particles — vivid multicolor
+        particle_type="glow",
+        particle_count=400,
         particle_color_base=(220, 100, 240),
         particle_color_variance=50.0,
-        particle_size_range=(1.0, 3.5),
-        particle_drift_range=(60.0, 200.0),
-        particle_alpha_range=(0.3, 0.75),
+        particle_size_range=(4.0, 10.0),
+        particle_drift_range=(80.0, 250.0),
+        particle_alpha_range=(0.4, 0.85),
         particle_flow_scale=4.0,
         particle_trail_length=5,
         particle_glow_colors=[
             (255, 80, 200),
             (80, 200, 255),
             (200, 255, 80),
+            (255, 160, 40),
         ],
-        particle_glow_radius=12.0,
+        particle_glow_radius=10.0,
         # Aurora with vivid colors
         aurora_enabled=True,
         aurora_count=6,
@@ -214,3 +215,60 @@ def get_preset(name: str, seed: int = 0) -> Preset:
     base["bg_noise_scale"] *= 1.0 + rng.uniform(-0.1, 0.1)
 
     return Preset(seed=seed, **base)
+
+
+def parse_hex_color(hex_str: str) -> tuple[int, int, int]:
+    """Parse a hex color like '#ff8800' or 'ff8800' to (r, g, b)."""
+    hex_str = hex_str.strip().lstrip("#")
+    if len(hex_str) != 6:
+        raise ValueError(f"Invalid hex color: '{hex_str}' — expected 6 hex digits")
+    return (int(hex_str[0:2], 16), int(hex_str[2:4], 16), int(hex_str[4:6], 16))
+
+
+def apply_custom_colors(preset: Preset, colors: list[tuple[int, int, int]]) -> Preset:
+    """Override a preset's colors with custom ones.
+
+    Colors are applied as:
+    - 1 color: used as primary everywhere
+    - 2 colors: bg gradient low/high
+    - 3+ colors: bg cycle, particle colors, aurora colors
+    """
+    if not colors:
+        return preset
+
+    if len(colors) == 1:
+        c = colors[0]
+        # Darken for background, use as-is for particles/aurora
+        dark = tuple(max(0, v // 4) for v in c)
+        mid = tuple(max(0, v // 2) for v in c)
+        preset.bg_color_low = dark
+        preset.bg_color_high = mid
+        preset.bg_cycle_colors = [dark, mid, dark]
+        preset.particle_color_base = c
+        if preset.particle_glow_colors:
+            preset.particle_glow_colors = [c]
+        if preset.aurora_colors:
+            preset.aurora_colors = [c, mid]
+    elif len(colors) == 2:
+        preset.bg_color_low = colors[0]
+        preset.bg_color_high = colors[1]
+        preset.bg_cycle_colors = [colors[0], colors[1], colors[0]]
+        preset.particle_color_base = colors[1]
+        if preset.particle_glow_colors:
+            preset.particle_glow_colors = list(colors)
+        if preset.aurora_colors:
+            preset.aurora_colors = list(colors)
+    else:
+        # 3+ colors: full palette
+        preset.bg_cycle_colors = [
+            tuple(max(0, v // 3) for v in c) for c in colors[:4]
+        ]
+        preset.bg_color_low = tuple(max(0, v // 4) for v in colors[0])
+        preset.bg_color_high = tuple(max(0, v // 2) for v in colors[1])
+        preset.particle_color_base = colors[0]
+        if preset.particle_glow_colors:
+            preset.particle_glow_colors = list(colors)
+        if preset.aurora_colors:
+            preset.aurora_colors = list(colors)
+
+    return preset
