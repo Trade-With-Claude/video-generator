@@ -1,4 +1,6 @@
-"""Render 5 seconds of each preset to verify visual distinctness."""
+"""Render 10 seconds of each preset to verify visual distinctness."""
+
+import sys
 
 from video_generator.config import Settings
 from video_generator.ffmpeg import FFmpegPipe
@@ -8,7 +10,7 @@ from video_generator.render import build_layers
 from video_generator.time_loop import TimeLoop
 
 settings = Settings()
-duration = 5.0
+duration = float(sys.argv[1]) if len(sys.argv) > 1 else 10.0
 
 for mood in AVAILABLE_MOODS:
     preset = get_preset(mood, seed=42)
@@ -17,7 +19,8 @@ for mood in AVAILABLE_MOODS:
     loop = TimeLoop(settings.fps, duration)
 
     output_path = settings.output_dir / f"preset_{mood}.mp4"
-    print(f"\nRendering '{mood}' preset ({preset.particle_count} particles)...")
+    layer_names = [type(l).__name__ for l in layers]
+    print(f"\nRendering '{mood}' — layers: {layer_names}")
 
     with FFmpegPipe(output_path, settings) as pipe:
         for i, t, theta in loop:
