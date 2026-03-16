@@ -9,4 +9,4 @@ v1
 | v1 | complete | — |
 
 ## Next Action
-Visual quality pass — push presets to look as good as possible with current 2D stack.
+V1 complete. Future v2: GLSL shaders via moderngl for 3D-like visuals.
