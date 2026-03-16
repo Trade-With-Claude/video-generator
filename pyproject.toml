@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "video-generator"
+version = "0.1.0"
+description = "Generative visual video creator for ADHD/meditation/binaural beats YouTube content"
+requires-python = ">=3.11"
+dependencies = [
+    "pycairo>=1.25",
+    "numpy>=1.26",
+    "opensimplex>=0.4",
+    "questionary>=2.0",
+    "pydantic-settings>=2.1",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
