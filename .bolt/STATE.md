@@ -6,7 +6,7 @@ v1
 ## Version History
 | Version | Status | Git Tag |
 |---------|--------|---------|
-| v1 | roadmap_complete | — |
+| v1 | complete | — |
 
 ## Next Action
-Run `/bolt:plan 1` to plan the first phase.
+Visual quality pass — push presets to look as good as possible with current 2D stack.

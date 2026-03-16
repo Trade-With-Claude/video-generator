@@ -1,10 +1,10 @@
 # V1 State
 
 ## Phase
-3
+5
 
 ## Status
-phase_2_complete
+v1_complete
 
 ## Progress
 - [x] Project created
@@ -13,9 +13,9 @@ phase_2_complete
 - [x] Roadmap planned (`/bolt:roadmap`)
 - [x] Phase 1: Project Foundation ✅ (4/4 AC passed)
 - [x] Phase 2: Rendering Engine ✅ (3/3 AC passed)
-- [ ] Phase 3: Visual Presets
-- [ ] Phase 4: Loop Extension
-- [ ] Phase 5: TUI & Polish
+- [x] Phase 3: Visual Presets ✅ (3/3 AC passed)
+- [x] Phase 4: Loop Extension ✅ (3/3 AC passed)
+- [x] Phase 5: TUI & Polish ✅ (3/3 AC passed)
 
 ## Key Decisions
 - Hybrid rendering: Cairo (shapes) + NumPy (pixel effects)
@@ -26,12 +26,13 @@ phase_2_complete
 - questionary for TUI, FFmpeg via subprocess pipe
 - opensimplex for 4D noise (circular loopable motion)
 - Noise at lower res (270p) + bicubic upscale for performance
-- cairo/pkg-config must be installed via Homebrew for pycairo
-- opensimplex noise4array broken on Python 3.13 — scalar fallback auto-detected
-- scipy used for bicubic zoom (needs adding to pyproject.toml)
+- opensimplex noise4array broken on Python 3.13 — scalar fallback
+- Loop extension via FFmpeg -stream_loop (stream copy, no re-encode)
 
-## Carry-Forward
-- Add `scipy` to `pyproject.toml` dependencies
+## Planned Next
+- Visual quality pass: metaballs, glow/bloom, flow fields, color cycling, aurora ribbons, vignette
+- Make each preset visually unique with different effect types
+- Future v2: GLSL shaders via moderngl for 3D-like visuals
 
 ## Notes
-Next action: `/bolt:plan 3`
+V1 complete! All 5 phases passed. Next: visual quality improvements.
