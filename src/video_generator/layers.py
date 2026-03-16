@@ -9,6 +9,21 @@ import numpy as np
 import opensimplex
 from scipy.ndimage import zoom
 
+# opensimplex's numba-accelerated array functions are broken on Python 3.13.
+# Fall back to scalar calls when array functions fail.
+def _check_noise_array() -> bool:
+    """Return True if we must use scalar noise (array functions broken)."""
+    try:
+        opensimplex.seed(0)
+        _test_1d = np.array([0.0, 1.0])
+        _test_2d = np.array([[0.0, 1.0], [2.0, 3.0]])
+        opensimplex.noise4array(_test_2d, _test_2d, _test_2d, _test_2d)
+        return False
+    except BaseException:
+        return True
+
+_USE_SCALAR_NOISE = _check_noise_array()
+
 
 class Layer(ABC):
     """Base class for renderable layers."""
@@ -57,11 +72,18 @@ class NoiseBackground(Layer):
         z = math.cos(theta) * self.speed
         w = math.sin(theta) * self.speed
 
-        z_arr = np.full_like(self.xs, z)
-        w_arr = np.full_like(self.xs, w)
-
         # Generate noise at low res — returns values in [-1, 1]
-        noise = opensimplex.noise4array(self.xs, self.ys, z_arr, w_arr)
+        if _USE_SCALAR_NOISE:
+            noise = np.empty((self.lr_h, self.lr_w))
+            for yi in range(self.lr_h):
+                for xi in range(self.lr_w):
+                    noise[yi, xi] = opensimplex.noise4(
+                        self.xs[yi, xi], self.ys[yi, xi], z, w
+                    )
+        else:
+            z_arr = np.full_like(self.xs, z)
+            w_arr = np.full_like(self.xs, w)
+            noise = opensimplex.noise4array(self.xs, self.ys, z_arr, w_arr)
 
         # Normalize to [0, 1]
         noise_norm = (noise + 1.0) * 0.5
