@@ -14,5 +14,6 @@ class Settings(BaseSettings):
     height: int = 1080
     fps: int = 30
     output_dir: Path = Path("output")
-    loop_duration: float = 45.0  # seconds
+    loop_duration: float = 45.0  # seconds — length of the rendered seamless loop
+    target_duration: float = 300.0  # seconds — final video length (loop gets extended)
     seed: int | None = None
