@@ -16,5 +16,8 @@ dependencies = [
     "scipy>=1.11",
 ]
 
+[project.scripts]
+video-generator = "video_generator.__main__:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
