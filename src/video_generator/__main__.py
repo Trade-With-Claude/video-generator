@@ -21,6 +21,8 @@ def main() -> None:
     parser.add_argument("--color", action="append", default=None,
                         help="Custom hex color (e.g. --color ff8800 --color 4400ff). "
                              "1 color = primary, 2 = gradient, 3+ = full palette")
+    parser.add_argument("--ui", action="store_true",
+                        help="Launch web UI with color pickers")
 
     args = parser.parse_args()
 
@@ -29,6 +31,11 @@ def main() -> None:
     if args.color:
         from video_generator.presets import parse_hex_color
         colors = [parse_hex_color(c) for c in args.color]
+
+    if args.ui:
+        from video_generator.ui import run_ui
+        run_ui()
+        return
 
     if args.mood is None:
         from video_generator.tui import run_tui
