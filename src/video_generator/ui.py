@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-import json
+import os
+import tempfile
 import threading
 import webbrowser
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request
 
-from video_generator.generate import generate
+from video_generator.generate import generate, get_audio_duration
 from video_generator.presets import AVAILABLE_MOODS, parse_hex_color
 
 app = Flask(__name__)
+
+# Store uploaded audio path
+_audio_store: dict[str, Path] = {}
 
 HTML = """<!DOCTYPE html>
 <html>
@@ -47,11 +51,23 @@ HTML = """<!DOCTYPE html>
   .check { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
   .check input { width: 16px; height: 16px; }
   .check label { margin: 0; text-transform: none; font-size: 14px; color: #ccc; }
+  .drop-zone { border: 2px dashed #444; border-radius: 8px; padding: 20px; text-align: center; color: #666; margin-bottom: 20px; cursor: pointer; transition: all 0.2s; }
+  .drop-zone:hover, .drop-zone.dragover { border-color: #2563eb; color: #999; background: #1a1a2e; }
+  .drop-zone.has-file { border-color: #22c55e; color: #aaa; border-style: solid; }
+  .drop-zone .filename { color: #22c55e; font-weight: 500; }
+  .drop-zone .duration { color: #999; font-size: 13px; }
+  .drop-zone .remove { color: #f55; cursor: pointer; margin-left: 8px; }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>Video Generator</h1>
+
+  <label>Audio File</label>
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('audioInput').click()">
+    Drop audio file here or click to browse
+    <input type="file" id="audioInput" accept="audio/*,.wav,.mp3,.flac,.ogg,.m4a,.aac" style="display:none">
+  </div>
 
   <label>Mood</label>
   <select id="mood">
@@ -105,6 +121,46 @@ HTML = """<!DOCTYPE html>
 </div>
 
 <script>
+let audioId = null;
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+const audioInput = document.getElementById('audioInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('dragover'); if (e.dataTransfer.files.length) uploadAudio(e.dataTransfer.files[0]); });
+audioInput.addEventListener('change', e => { if (e.target.files.length) uploadAudio(e.target.files[0]); });
+
+async function uploadAudio(file) {
+  dropZone.innerHTML = 'Uploading...';
+  const form = new FormData();
+  form.append('audio', file);
+  try {
+    const res = await fetch('/upload-audio', { method: 'POST', body: form });
+    const data = await res.json();
+    if (data.ok) {
+      audioId = data.id;
+      const mins = Math.floor(data.duration / 60);
+      const secs = Math.round(data.duration % 60);
+      dropZone.innerHTML = `<span class="filename">${data.name}</span> <span class="duration">${mins}m ${secs}s</span> <span class="remove" onclick="removeAudio(event)">&times;</span>`;
+      dropZone.classList.add('has-file');
+      document.getElementById('duration').value = Math.ceil(data.duration);
+    } else {
+      dropZone.innerHTML = 'Error: ' + data.error;
+    }
+  } catch(e) {
+    dropZone.innerHTML = 'Upload failed: ' + e.message;
+  }
+}
+
+function removeAudio(e) {
+  e.stopPropagation();
+  audioId = null;
+  dropZone.innerHTML = 'Drop audio file here or click to browse';
+  dropZone.classList.remove('has-file');
+}
+
 function addColor() {
   const row = document.getElementById('colors');
   const slot = document.createElement('div');
@@ -137,7 +193,9 @@ async function doGenerate() {
   btn.disabled = true;
   btn.textContent = 'Generating...';
   status.className = 'status show';
-  status.textContent = 'Rendering video... this may take a few minutes.';
+  status.textContent = audioId
+    ? 'Rendering video + merging audio... this may take a few minutes.'
+    : 'Rendering video... this may take a few minutes.';
 
   try {
     const res = await fetch('/generate', {
@@ -149,6 +207,7 @@ async function doGenerate() {
         loop_duration: parseFloat(document.getElementById('loop').value),
         seed: parseInt(document.getElementById('seed').value) || 0,
         colors: getColors(),
+        audio_id: audioId,
       })
     });
     const data = await res.json();
@@ -176,6 +235,28 @@ def index():
     return HTML
 
 
+@app.route("/upload-audio", methods=["POST"])
+def upload_audio():
+    try:
+        file = request.files.get("audio")
+        if not file or not file.filename:
+            return jsonify(ok=False, error="No file provided")
+
+        # Save to temp file
+        suffix = Path(file.filename).suffix
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix, dir="output")
+        file.save(tmp.name)
+        tmp.close()
+
+        duration = get_audio_duration(tmp.name)
+        audio_id = os.path.basename(tmp.name)
+        _audio_store[audio_id] = Path(tmp.name)
+
+        return jsonify(ok=True, id=audio_id, name=file.filename, duration=duration)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e))
+
+
 @app.route("/generate", methods=["POST"])
 def api_generate():
     try:
@@ -188,13 +269,25 @@ def api_generate():
         if seed == 0:
             seed = None
 
+        audio_path = None
+        audio_id = data.get("audio_id")
+        if audio_id and audio_id in _audio_store:
+            audio_path = _audio_store[audio_id]
+
         output = generate(
             mood=data.get("mood", "ambient"),
             target_duration=data.get("duration", 300),
             loop_duration=data.get("loop_duration", 45),
             seed=seed,
             colors=colors,
+            audio=audio_path,
         )
+
+        # Clean up uploaded audio
+        if audio_id and audio_id in _audio_store:
+            _audio_store[audio_id].unlink(missing_ok=True)
+            del _audio_store[audio_id]
+
         size_mb = f"{output.stat().st_size / 1024 / 1024:.1f}"
         return jsonify(ok=True, output=str(output), size_mb=size_mb)
     except Exception as e:
@@ -203,7 +296,8 @@ def api_generate():
 
 def run_ui(port: int = 5555) -> None:
     """Launch the web UI."""
-    print(f"\n  Video Generator UI → http://localhost:{port}\n")
+    Path("output").mkdir(exist_ok=True)
+    print(f"\n  Video Generator UI -> http://localhost:{port}\n")
     threading.Timer(1.0, lambda: webbrowser.open(f"http://localhost:{port}")).start()
     app.run(host="127.0.0.1", port=port, debug=False)
 

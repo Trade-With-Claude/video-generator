@@ -5,13 +5,49 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+import json
+import subprocess
+
 from video_generator.config import Settings
-from video_generator.ffmpeg import FFmpegPipe, check_ffmpeg
+from video_generator.ffmpeg import FFmpegError, FFmpegPipe, check_ffmpeg
 from video_generator.layers import LayerCompositor
 from video_generator.loop import extend_loop
 from video_generator.presets import apply_custom_colors, get_preset
 from video_generator.render import build_layers
 from video_generator.time_loop import TimeLoop
+
+
+def get_audio_duration(audio_path: str | Path) -> float:
+    """Get duration of an audio file in seconds via ffprobe."""
+    result = subprocess.run(
+        [
+            "ffprobe", "-v", "quiet", "-print_format", "json",
+            "-show_format", str(audio_path),
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise FFmpegError(f"Cannot read audio file: {audio_path}")
+    return float(json.loads(result.stdout)["format"]["duration"])
+
+
+def merge_audio_video(video_path: Path, audio_path: Path, output_path: Path) -> Path:
+    """Merge video and audio into a final MP4."""
+    cmd = [
+        check_ffmpeg(), "-y",
+        "-i", str(video_path),
+        "-i", str(audio_path),
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-b:a", "256k",
+        "-shortest",
+        "-movflags", "+faststart",
+        str(output_path),
+    ]
+    result = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    if result.returncode != 0:
+        raise FFmpegError(f"Audio merge failed: {result.stderr.decode()}")
+    return output_path
 
 
 def generate(
@@ -21,6 +57,7 @@ def generate(
     seed: int | None = None,
     output: str | Path | None = None,
     colors: list[tuple[int, int, int]] | None = None,
+    audio: str | Path | None = None,
 ) -> Path:
     """Generate a video end-to-end. Returns the path to the output MP4.
 
@@ -31,8 +68,16 @@ def generate(
         seed: Random seed for reproducibility. Auto-generated if None.
         output: Output file path. Auto-generated if None.
         colors: Custom color palette as list of (r,g,b) tuples. Overrides preset colors.
+        audio: Path to audio file. If provided, auto-detects duration and merges.
     """
     check_ffmpeg()
+
+    # Auto-detect duration from audio
+    if audio is not None:
+        audio = Path(audio)
+        audio_dur = get_audio_duration(audio)
+        target_duration = audio_dur
+        print(f"  Audio: {audio.name} ({audio_dur:.1f}s)")
 
     if seed is None:
         seed = int(time.time()) % 100000
@@ -82,6 +127,20 @@ def generate(
         loop_path.unlink(missing_ok=True)
     else:
         loop_path.rename(output)
+
+    # Merge audio if provided
+    if audio is not None:
+        print(f"  Merging audio...")
+        video_only = output
+        if output.stem.endswith("_video"):
+            final = output.with_stem(output.stem.replace("_video", ""))
+        else:
+            video_only = output.with_stem(output.stem + "_video")
+            output.rename(video_only)
+            final = output
+        merge_audio_video(video_only, audio, final)
+        video_only.unlink(missing_ok=True)
+        output = final
 
     size_mb = output.stat().st_size / (1024 * 1024)
     elapsed_total = time.time() - t0

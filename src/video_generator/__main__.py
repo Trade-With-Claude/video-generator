@@ -21,6 +21,8 @@ def main() -> None:
     parser.add_argument("--color", action="append", default=None,
                         help="Custom hex color (e.g. --color ff8800 --color 4400ff). "
                              "1 color = primary, 2 = gradient, 3+ = full palette")
+    parser.add_argument("--audio", type=str, default=None,
+                        help="Audio file to merge — auto-detects duration")
     parser.add_argument("--ui", action="store_true",
                         help="Launch web UI with color pickers")
 
@@ -49,6 +51,7 @@ def main() -> None:
             seed=args.seed,
             output=args.output,
             colors=colors,
+            audio=args.audio,
         )
 
 
