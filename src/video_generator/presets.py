@@ -279,7 +279,6 @@ _PRESETS = {
     "cubes": _cubes_base,
     "geometry": _geometry_base,
     "orb": _orb_base,
-    "torus": lambda: _shader_preset("torus"),
     "octahedron": lambda: _shader_preset("octahedron"),
     "warp": lambda: _shader_preset("warp"),
     "dna": lambda: _shader_preset("dna"),

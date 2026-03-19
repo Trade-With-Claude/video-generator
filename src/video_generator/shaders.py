@@ -260,27 +260,26 @@ void main() {
     float angle = atan(p.y, p.x);
     float radius = length(p);
 
-    vec3 col = vec3(0.01, 0.01, 0.04);
+    vec3 col = vec3(0.02, 0.02, 0.06);
 
-    // Flower of life — overlapping circles
+    // Flower of life — overlapping circles — BOLD
     for (int i = 0; i < 6; i++) {
         float fi = float(i);
         float a = fi * 3.14159 / 3.0 + u_theta * 1.0;
-        vec2 center = vec2(cos(a), sin(a)) * 0.35;
-        float d = abs(length(p - center) - 0.35);
-        float glow = 0.002 / (d + 0.002);
-        col += vec3(0.0, 0.15, 0.18) * glow * 0.08;
+        vec2 center = vec2(cos(a), sin(a)) * 0.4;
+        float d = abs(length(p - center) - 0.4);
+        float glow = 0.004 / (d + 0.004);
+        col += vec3(0.0, 0.35, 0.4) * glow * 0.15;
     }
     // Center circle
-    float cd = abs(length(p) - 0.35);
-    col += vec3(0.0, 0.12, 0.15) * 0.002 / (cd + 0.002) * 0.08;
+    float cd = abs(length(p) - 0.4);
+    col += vec3(0.0, 0.3, 0.35) * 0.004 / (cd + 0.004) * 0.15;
 
-    // Nested polygons — triangle through nonagon, each rotating differently
+    // Nested polygons — BOLDER glow
     for (int i = 0; i < 8; i++) {
         float fi = float(i);
-        float r = 0.12 + fi * 0.12;
+        float r = 0.15 + fi * 0.13;
         float n_sides = 3.0 + fi;
-        // Alternate rotation directions, different speeds
         float dir = mod(fi, 2.0) == 0.0 ? 1.0 : -1.0;
         float rot = u_theta * (1.0 + fi) * dir + u_seed * 0.3 + fi * 0.5;
 
@@ -290,32 +289,31 @@ void main() {
         float a_mod = mod(a + half_sector, sector) - half_sector;
         float poly_dist = abs(radius - r * cos(half_sector) / cos(a_mod));
 
-        float glow = 0.0015 / (poly_dist + 0.0015);
+        float glow = 0.003 / (poly_dist + 0.003);
 
-        // Color gradient across layers — teal to blue to purple
         vec3 layer_col;
         float t = fi / 7.0;
-        layer_col = mix(vec3(0.0, 0.5, 0.5), vec3(0.3, 0.15, 0.6), t);
+        layer_col = mix(vec3(0.0, 0.8, 0.7), vec3(0.4, 0.2, 0.8), t);
 
-        col += layer_col * glow * 0.1;
+        col += layer_col * glow * 0.2;
     }
 
-    // Radiating lines from center
+    // Radiating lines — STRONGER
     for (int i = 0; i < 12; i++) {
         float a = float(i) * 3.14159 / 6.0 + u_theta * 1.0;
         vec2 dir = vec2(cos(a), sin(a));
         float line_dist = abs(dot(p, vec2(-dir.y, dir.x)));
-        float line_glow = 0.001 / (line_dist + 0.001) * smoothstep(0.0, 0.15, radius) * smoothstep(1.2, 0.3, radius);
-        col += vec3(0.0, 0.08, 0.1) * line_glow * 0.04;
+        float line_glow = 0.002 / (line_dist + 0.002) * smoothstep(0.0, 0.1, radius) * smoothstep(1.3, 0.2, radius);
+        col += vec3(0.0, 0.15, 0.2) * line_glow * 0.08;
     }
 
-    // Pulsing outer ring
-    float outer = abs(radius - 0.95 - 0.05 * sin(u_theta * 2.0));
-    col += vec3(0.0, 0.2, 0.25) * 0.003 / (outer + 0.003) * 0.15;
+    // Pulsing outer ring — brighter
+    float outer = abs(radius - 1.0 - 0.05 * sin(u_theta * 2.0));
+    col += vec3(0.0, 0.4, 0.5) * 0.005 / (outer + 0.005) * 0.25;
 
-    // Central glow — soft and warm
-    float center_glow = exp(-radius * 3.0);
-    col += vec3(0.05, 0.2, 0.25) * center_glow * 0.5;
+    // Central glow — stronger
+    float center_glow = exp(-radius * 2.5);
+    col += vec3(0.1, 0.4, 0.45) * center_glow * 0.7;
 
     // Gentle pulse
     col *= 0.85 + 0.15 * sin(u_theta * 2.0);
@@ -323,8 +321,7 @@ void main() {
     // Vignette
     col *= smoothstep(1.6, 0.3, radius);
 
-    // Gamma
-    col = pow(col, vec3(0.95));
+    col = pow(col, vec3(0.85));
 
     fragColor = col;
 }
@@ -526,25 +523,27 @@ float sdOctahedron(vec3 p, float s) {
     return (p.x + p.y + p.z - s) * 0.57735027;
 }
 
-float sdBox(vec3 p, vec3 b) {
-    vec3 q = abs(p) - b;
-    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
-}
+float sdSphere(vec3 p, float r) { return length(p) - r; }
 
 float map(vec3 p) {
-    // Slow rotation
-    p.xz *= rot(u_theta * 1.0);
-    p.yz *= rot(u_theta * 1.0 * 0.7);
-    p.xy *= rot(u_theta * 1.0 * 0.4);
+    // Repeat space — infinite field of shapes
+    vec3 rep = vec3(4.0);
+    vec3 q = mod(p + rep * 0.5, rep) - rep * 0.5;
 
-    // Morph between octahedron and box
-    float morph = 0.5 + 0.5 * sin(u_theta * 1.0);
-    float oct = sdOctahedron(p, 1.0 + 0.2 * sin(u_theta * 2.0));
-    float box = sdBox(p, vec3(0.7 + 0.1 * sin(u_theta * 3.0)));
-    float d = mix(oct, box, morph * 0.6);
+    // Each shape rotates
+    q.xz *= rot(u_theta * 1.0 + u_seed * 0.1);
+    q.yz *= rot(u_theta * 1.0);
+    q.xy *= rot(u_theta * 1.0 * 0.5);
 
-    // Subtract inner shape for hollow feel
-    float inner = sdOctahedron(p, 0.6);
+    // Morph between octahedron and sphere
+    float morph = 0.5 + 0.5 * sin(u_theta * 2.0);
+    float size = 0.7 + 0.15 * sin(u_theta * 1.0);
+    float oct = sdOctahedron(q, size);
+    float sphere = sdSphere(q, size * 0.8);
+    float d = mix(oct, sphere, morph * 0.5);
+
+    // Hollow — subtract inner shape
+    float inner = sdOctahedron(q, size * 0.5);
     d = max(d, -inner);
 
     return d;
@@ -554,9 +553,13 @@ void main() {
     vec2 p = (uv - 0.5) * 2.0;
     p.x *= u_resolution.x / u_resolution.y;
 
-    vec3 ro = vec3(0.0, 0.0, -3.5);
-    vec3 rd = normalize(vec3(p, 1.5));
-    // Gentle camera sway
+    // Camera moving forward through the field (like cubes)
+    vec3 ro = vec3(
+        sin(u_theta * 1.0) * 1.0,
+        cos(u_theta * 1.0) * 0.5,
+        u_theta * 2.0
+    );
+    vec3 rd = normalize(vec3(p * 0.8, 1.5));
     rd.xz *= rot(sin(u_theta * 1.0) * 0.1);
 
     float t = 0.0;
@@ -564,16 +567,16 @@ void main() {
     for (int i = 0; i < 80; i++) {
         float d = map(ro + rd * t);
         glow += 0.02 / (abs(d) + 0.04);
-        if (d < 0.001 || t > 20.0) break;
-        t += d;
+        if (d < 0.001 || t > 30.0) break;
+        t += d * 0.8;
     }
 
-    vec3 col = vec3(0.01, 0.012, 0.035);
-    col += vec3(0.02, 0.04, 0.06) * glow * 0.01;
+    vec3 col = vec3(0.01, 0.015, 0.04);
+    col += vec3(0.0, 0.05, 0.07) * glow * 0.012;
 
-    if (t < 20.0) {
+    if (t < 30.0) {
         vec3 pos = ro + rd * t;
-        vec2 e = vec2(0.001, 0.0);
+        vec2 e = vec2(0.002, 0.0);
         vec3 n = normalize(vec3(
             map(pos + e.xyy) - map(pos - e.xyy),
             map(pos + e.yxy) - map(pos - e.yxy),
@@ -584,19 +587,19 @@ void main() {
         vec3 light2 = normalize(vec3(-1.0, 0.5, 0.5));
         float diff1 = max(dot(n, light1), 0.0);
         float diff2 = max(dot(n, light2), 0.0);
-        float spec = pow(max(dot(reflect(rd, n), light1), 0.0), 32.0);
+        float spec = pow(max(dot(reflect(rd, n), light1), 0.0), 24.0);
         float fresnel = pow(1.0 - max(dot(n, -rd), 0.0), 3.0);
 
-        col = vec3(0.01, 0.02, 0.04);
-        col += vec3(0.0, 0.2, 0.3) * diff1 * 0.5;
-        col += vec3(0.1, 0.05, 0.2) * diff2 * 0.3;
-        col += vec3(0.2, 0.4, 0.6) * spec * 0.3;
-        col += vec3(0.0, 0.15, 0.25) * fresnel * 0.5;
+        col = vec3(0.01, 0.03, 0.05);
+        col += vec3(0.0, 0.3, 0.35) * diff1 * 0.5;
+        col += vec3(0.1, 0.08, 0.25) * diff2 * 0.3;
+        col += vec3(0.2, 0.5, 0.6) * spec * 0.3;
+        col += vec3(0.0, 0.2, 0.3) * fresnel * 0.45;
 
-        col = mix(col, vec3(0.01, 0.012, 0.035), 1.0 - exp(-t * 0.08));
+        col = mix(col, vec3(0.01, 0.015, 0.04), 1.0 - exp(-t * 0.06));
     }
 
-    col *= 1.0 - length(p) * 0.2;
+    col *= 1.0 - length(p) * 0.25;
     fragColor = col;
 }
 """
@@ -617,45 +620,54 @@ void main() {
     float radius = length(p);
     float angle = atan(p.y, p.x);
 
-    vec3 col = vec3(0.01, 0.015, 0.04);
+    vec3 col = vec3(0.02, 0.025, 0.06);
 
-    // Warp field — concentric distorted rings moving outward
-    for (int i = 0; i < 5; i++) {
+    // Warp field — 8 concentric distorted rings expanding outward
+    for (int i = 0; i < 8; i++) {
         float fi = float(i);
-        // Rings expanding outward
-        float ring_r = mod(fi * 0.25 + u_theta * 1.0 / 6.283, 1.3);
+        float ring_r = mod(fi * 0.18 + u_theta * 1.0 / 6.283, 1.5);
 
-        // Distorted ring
-        float distortion = sin(angle * (3.0 + fi) + u_theta * 2.0) * 0.08;
+        // Heavy distortion
+        float distortion = sin(angle * (4.0 + fi) + u_theta * 2.0) * 0.12
+                         + sin(angle * (2.0 + fi * 0.5) - u_theta * 3.0) * 0.06;
         float d = abs(radius - ring_r + distortion);
 
-        float glow = 0.003 / (d + 0.003);
-        glow *= smoothstep(1.3, 0.1, ring_r); // fade as ring expands
+        // Much stronger glow
+        float glow = 0.006 / (d + 0.006);
+        glow *= smoothstep(1.5, 0.05, ring_r);
 
-        vec3 ring_col = mix(vec3(0.0, 0.4, 0.45), vec3(0.1, 0.15, 0.4), fi / 5.0);
-        col += ring_col * glow * 0.12;
+        vec3 ring_col = mix(vec3(0.0, 0.6, 0.65), vec3(0.15, 0.2, 0.6), fi / 8.0);
+        col += ring_col * glow * 0.2;
     }
 
-    // Central star/warp point
-    float star_glow = 0.02 / (radius + 0.02);
-    col += vec3(0.1, 0.4, 0.5) * star_glow * 0.4;
+    // Bright central warp point
+    float star_glow = 0.04 / (radius + 0.04);
+    col += vec3(0.15, 0.5, 0.6) * star_glow * 0.6;
+    // Inner bright core
+    col += vec3(0.3, 0.7, 0.8) * exp(-radius * 8.0) * 0.5;
 
-    // Speed lines radiating from center
-    for (int i = 0; i < 20; i++) {
+    // Speed lines radiating from center — MORE and BRIGHTER
+    for (int i = 0; i < 30; i++) {
         float fi = float(i);
-        float line_angle = fi * 6.283 / 20.0 + u_seed;
+        float line_angle = fi * 6.283 / 30.0 + u_seed;
         float a_diff = abs(mod(angle - line_angle + 3.14159, 6.283) - 3.14159);
-        float line = 0.003 / (a_diff + 0.003);
-        line *= smoothstep(0.1, 0.4, radius) * smoothstep(1.5, 0.5, radius);
+        float line = 0.004 / (a_diff + 0.004);
+        line *= smoothstep(0.08, 0.3, radius) * smoothstep(1.6, 0.4, radius);
 
-        // Animate length
-        float pulse = 0.5 + 0.5 * sin(u_theta * 3.0 + fi * 0.8);
-        col += vec3(0.0, 0.08, 0.1) * line * pulse * 0.02;
+        float pulse = 0.6 + 0.4 * sin(u_theta * 3.0 + fi * 0.7);
+        col += vec3(0.0, 0.15, 0.2) * line * pulse * 0.04;
     }
 
-    // Pulsing brightness
-    col *= 0.9 + 0.1 * sin(u_theta * 2.0);
+    // Rotating outer spiral arms
+    for (int i = 0; i < 4; i++) {
+        float fi = float(i);
+        float spiral_a = angle + radius * 3.0 - u_theta * 2.0 + fi * 1.57;
+        float spiral = 0.5 + 0.5 * sin(spiral_a * 2.0);
+        spiral = pow(spiral, 4.0);
+        col += vec3(0.0, 0.1, 0.15) * spiral * smoothstep(0.3, 0.8, radius) * smoothstep(1.4, 0.8, radius) * 0.15;
+    }
 
+    col *= 0.9 + 0.1 * sin(u_theta * 2.0);
     col *= smoothstep(1.8, 0.2, radius);
     fragColor = col;
 }
