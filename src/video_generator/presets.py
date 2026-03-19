@@ -14,6 +14,9 @@ class Preset:
     name: str
     seed: int
 
+    # Shader (if set, uses GLSL instead of layer pipeline)
+    shader: str = ""  # "tunnel", "cubes", "geometry", "terrain", or "" for layer-based
+
     # Background
     bg_type: str = "noise"  # "noise" or "colorcycle"
     bg_color_low: tuple[int, int, int] = (5, 20, 60)
@@ -184,10 +187,82 @@ def _trippy_base() -> dict:
     )
 
 
+def _tunnel_base() -> dict:
+    return dict(
+        name="tunnel",
+        shader="tunnel",
+        bg_type="noise",
+        bg_color_low=(2, 10, 30), bg_color_high=(10, 50, 70),
+        bg_noise_scale=3.0, bg_noise_speed=1.0, bg_cycle_colors=[], bg_cycle_speed=1.0,
+        particle_type="none", particle_count=0,
+        particle_color_base=(0, 200, 220), particle_color_variance=0,
+        particle_size_range=(1.0, 1.0), particle_drift_range=(0, 0),
+        particle_alpha_range=(0, 0), particle_glow_colors=[], particle_glow_radius=0,
+        particle_flow_scale=0, particle_trail_length=0,
+        aurora_enabled=False, aurora_count=0, aurora_colors=[], aurora_speed=0, aurora_alpha=0,
+        vignette_enabled=False, vignette_strength=0, vignette_radius=0,
+    )
+
+
+def _cubes_base() -> dict:
+    return dict(
+        name="cubes",
+        shader="cubes",
+        bg_type="noise",
+        bg_color_low=(2, 5, 15), bg_color_high=(10, 30, 50),
+        bg_noise_scale=3.0, bg_noise_speed=1.0, bg_cycle_colors=[], bg_cycle_speed=1.0,
+        particle_type="none", particle_count=0,
+        particle_color_base=(0, 200, 220), particle_color_variance=0,
+        particle_size_range=(1.0, 1.0), particle_drift_range=(0, 0),
+        particle_alpha_range=(0, 0), particle_glow_colors=[], particle_glow_radius=0,
+        particle_flow_scale=0, particle_trail_length=0,
+        aurora_enabled=False, aurora_count=0, aurora_colors=[], aurora_speed=0, aurora_alpha=0,
+        vignette_enabled=False, vignette_strength=0, vignette_radius=0,
+    )
+
+
+def _geometry_base() -> dict:
+    return dict(
+        name="geometry",
+        shader="geometry",
+        bg_type="noise",
+        bg_color_low=(2, 2, 10), bg_color_high=(10, 10, 40),
+        bg_noise_scale=3.0, bg_noise_speed=1.0, bg_cycle_colors=[], bg_cycle_speed=1.0,
+        particle_type="none", particle_count=0,
+        particle_color_base=(100, 50, 200), particle_color_variance=0,
+        particle_size_range=(1.0, 1.0), particle_drift_range=(0, 0),
+        particle_alpha_range=(0, 0), particle_glow_colors=[], particle_glow_radius=0,
+        particle_flow_scale=0, particle_trail_length=0,
+        aurora_enabled=False, aurora_count=0, aurora_colors=[], aurora_speed=0, aurora_alpha=0,
+        vignette_enabled=False, vignette_strength=0, vignette_radius=0,
+    )
+
+
+def _terrain_base() -> dict:
+    return dict(
+        name="terrain",
+        shader="terrain",
+        bg_type="noise",
+        bg_color_low=(1, 2, 10), bg_color_high=(5, 20, 40),
+        bg_noise_scale=3.0, bg_noise_speed=1.0, bg_cycle_colors=[], bg_cycle_speed=1.0,
+        particle_type="none", particle_count=0,
+        particle_color_base=(0, 150, 180), particle_color_variance=0,
+        particle_size_range=(1.0, 1.0), particle_drift_range=(0, 0),
+        particle_alpha_range=(0, 0), particle_glow_colors=[], particle_glow_radius=0,
+        particle_flow_scale=0, particle_trail_length=0,
+        aurora_enabled=False, aurora_count=0, aurora_colors=[], aurora_speed=0, aurora_alpha=0,
+        vignette_enabled=False, vignette_strength=0, vignette_radius=0,
+    )
+
+
 _PRESETS = {
     "ambient": _ambient_base,
     "focus": _focus_base,
     "trippy": _trippy_base,
+    "tunnel": _tunnel_base,
+    "cubes": _cubes_base,
+    "geometry": _geometry_base,
+    "terrain": _terrain_base,
 }
 
 AVAILABLE_MOODS = list(_PRESETS.keys())

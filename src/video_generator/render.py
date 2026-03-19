@@ -18,6 +18,18 @@ def build_layers(preset: Preset, width: int = 1920, height: int = 1080) -> list[
     """Create a list of render layers configured from a preset."""
     layers: list[Layer] = []
 
+    # --- GLSL Shader mode ---
+    if preset.shader:
+        from video_generator.shaders import ShaderLayer, SHADER_PRESETS
+        if preset.shader not in SHADER_PRESETS:
+            raise ValueError(f"Unknown shader '{preset.shader}'. Available: {list(SHADER_PRESETS.keys())}")
+        layers.append(ShaderLayer(
+            width, height,
+            fragment_shader=SHADER_PRESETS[preset.shader],
+            seed=preset.seed,
+        ))
+        return layers
+
     # --- Background ---
     if preset.bg_type == "colorcycle" and preset.bg_cycle_colors:
         layers.append(ColorCycleBackground(
