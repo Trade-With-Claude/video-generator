@@ -238,15 +238,31 @@ def _geometry_base() -> dict:
     )
 
 
-def _terrain_base() -> dict:
+def _orb_base() -> dict:
     return dict(
-        name="terrain",
-        shader="terrain",
+        name="orb",
+        shader="orb",
         bg_type="noise",
         bg_color_low=(1, 2, 10), bg_color_high=(5, 20, 40),
         bg_noise_scale=3.0, bg_noise_speed=1.0, bg_cycle_colors=[], bg_cycle_speed=1.0,
         particle_type="none", particle_count=0,
         particle_color_base=(0, 150, 180), particle_color_variance=0,
+        particle_size_range=(1.0, 1.0), particle_drift_range=(0, 0),
+        particle_alpha_range=(0, 0), particle_glow_colors=[], particle_glow_radius=0,
+        particle_flow_scale=0, particle_trail_length=0,
+        aurora_enabled=False, aurora_count=0, aurora_colors=[], aurora_speed=0, aurora_alpha=0,
+        vignette_enabled=False, vignette_strength=0, vignette_radius=0,
+    )
+
+
+def _shader_preset(name: str) -> dict:
+    """Create a minimal preset for shader-based rendering."""
+    return dict(
+        name=name, shader=name,
+        bg_type="noise", bg_color_low=(2, 5, 15), bg_color_high=(10, 30, 50),
+        bg_noise_scale=3.0, bg_noise_speed=1.0, bg_cycle_colors=[], bg_cycle_speed=1.0,
+        particle_type="none", particle_count=0,
+        particle_color_base=(0, 200, 220), particle_color_variance=0,
         particle_size_range=(1.0, 1.0), particle_drift_range=(0, 0),
         particle_alpha_range=(0, 0), particle_glow_colors=[], particle_glow_radius=0,
         particle_flow_scale=0, particle_trail_length=0,
@@ -262,7 +278,11 @@ _PRESETS = {
     "tunnel": _tunnel_base,
     "cubes": _cubes_base,
     "geometry": _geometry_base,
-    "terrain": _terrain_base,
+    "orb": _orb_base,
+    "torus": lambda: _shader_preset("torus"),
+    "octahedron": lambda: _shader_preset("octahedron"),
+    "warp": lambda: _shader_preset("warp"),
+    "dna": lambda: _shader_preset("dna"),
 }
 
 AVAILABLE_MOODS = list(_PRESETS.keys())
